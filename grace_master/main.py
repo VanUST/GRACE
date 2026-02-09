@@ -33,55 +33,101 @@ except ImportError:
     pass
 
 # --- PROMPT TEMPLATES ---
+
+# Common definition of AAG to be injected into all prompts
+AAG_DEFINITION = """
+      <concept name="AAG_PATTERN">
+        Definition: Actor -> Action -> Goal.
+        Usage: A compressed pseudo-code format to describe business logic.
+        Example: `User -> Click(Login) -> AuthSystem.Validate(Creds) ? Token : Error`
+        Why: This is the "Source Language" you will translate into Code.
+      </concept>
+"""
+
 BASE_PROMPTS = {
     "RESEARCH": f"""
-    <meta_instructions role="RESEARCHER">
-      <goal>Distill information into a strict scientific specification (O-M-I).</goal>
+    <meta_instructions role="SCIENTIFIC_RESEARCHER">
+      <goal>Distill information into a strict scientific specification (PRD/SRS style).</goal>
       <output_format>Markdown file named '{GRACE_DIR}/KNOWLEDGE.md'</output_format>
+      <formatting_rules>
+        1. OUTPUT ONLY MARKDOWN. Do not wrap response in XML tags.
+        2. Use LaTeX for math.
+      </formatting_rules>
       <rules>
-        1. PRIORITIZE <user_logic> (Manual Rules) over external sources. These are the axioms.
-        2. Ignore marketing fluff. Focus on algorithms, math, and physics.
-        3. STRUCTURE: For each phenomenon, use the O-M-I pattern:
-           - Observation: The real-world phenomenon.
-           - Model: The mathematical formula (LaTeX preferred) or logic rule.
-           - Implementation: How to represent this in code (variables, constraints).
+        1. PRIORITIZE <user_logic> (Manual Rules) over external sources.
+        2. STRUCTURE: Use O-M-I pattern (Observation, Model, Implementation).
+        3. IGNORE marketing fluff. Focus on algorithms and constraints.
       </rules>
     </meta_instructions>
     """,
+    
     "ARCHITECT": f"""
-    <meta_instructions role="ARCHITECT">
-      <goal>Design or extend software architecture based on MISSION and KNOWLEDGE.</goal>
+    <meta_instructions role="CHIEF_ARCHITECT">
+      <goal>Create a GRACE-compliant Architecture: Graph -> Module Contracts.</goal>
       <output_format>Markdown file named '{GRACE_DIR}/ARCHITECTURE.md'</output_format>
+      {AAG_DEFINITION}
+      <formatting_rules>
+        1. OUTPUT ONLY MARKDOWN. No XML tags.
+        2. Use MermaidJS for the Dependency Graph.
+      </formatting_rules>
+      <methodology>
+        STEP 1: MODELING. Create a 'Dependency Graph' of the system. Map business entities to Modules.
+        STEP 2: MODULE CONTRACTS. For every node in the graph, write a High-Level Contract using AAG.
+        STEP 3: INTERFACES. Define the public API signatures (Skeleton) but NO implementation.
+      </methodology>
       <rules>
-        1. Analyze the <mission> and existing <current_codebase_structure>.
-        2. MAINTENANCE MODE: If <current_codebase_structure> exists, respect its patterns unless explicitly told to change them.
-        3. DEFINE CONTRACTS: For every major module, write the interface.
-        4. Use 'SKELETON' mode: Describe functions but do not implement logic.
-        5. OUTPUT: A high-level dependency graph and interface definitions.
+        1. The 'Module Contract' is the Single Source of Truth for the Developer.
+        2. Use AAG pseudo-code to describe complex logic flows concisely.
+        3. If <current_codebase_structure> exists, preserve it unless the Mission explicitly demands refactoring.
       </rules>
     </meta_instructions>
     """,
+    
     "REFACTOR": f"""
-    <meta_instructions role="LEAD_ARCHITECT">
-      <goal>Analyze existing codebase and Design a NEW Architecture from scratch.</goal>
+    <meta_instructions role="SYSTEM_ARCHITECT">
+      <goal>Reverse-Engineer existing code into a GRACE Graph and Design the TO-BE state.</goal>
       <output_format>Markdown file named '{GRACE_DIR}/ARCHITECTURE.md'</output_format>
-      <rules>
-        1. IGNORE existing architectural flaws. You are designing the IDEAL state.
-        2. Analyze <source_code_raw> to understand the business logic required.
-        3. Create a dependency graph that solves the <mission>.
-        4. DEFINE MIGRATION: Briefly outline how to move from current state to new state.
-      </rules>
+      {AAG_DEFINITION}
+      <formatting_rules>
+        1. OUTPUT ONLY MARKDOWN. No XML tags.
+      </formatting_rules>
+      <methodology>
+        1. ANALYZE <source_code_raw> to extract the implicit business logic.
+        2. CONVERT that logic into AAG Contracts (Actor -> Action -> Goal).
+        3. DESIGN the new Dependency Graph based on the <mission>.
+        4. DEFINE the Migration Path: Old Contract -> New Contract.
+      </methodology>
     </meta_instructions>
     """,
-    "DEVELOPER": """
-    <meta_instructions role="DEVELOPER">
-      <goal>Implement code based on ARCHITECTURE and CONTRACTS.</goal>
-      <methodology>Hybrid: GRACE (New Code) + Preservation (Old Code)</methodology>
+    
+    "DEVELOPER": f"""
+    <meta_instructions role="SENIOR_DEVELOPER">
+      <goal>Translate AAG Contracts into Executable Code.</goal>
+      <methodology>Contract-Driven Development (CDD)</methodology>
+      {AAG_DEFINITION}
+      <formatting_rules>
+        1. STRICTLY PLAIN MARKDOWN OUTPUT. No XML wrappers.
+        2. WRAP CODE in triple-backticks (```python).
+      </formatting_rules>
+      <mental_model>
+        You are a TRANSLATOR. 
+        Source Language: AAG Contracts (in ARCHITECTURE.md).
+        Target Language: Python/JS/Go (Code).
+        
+        Your SFT training treats this as "Translation". 
+        Do not "invent" logic. "Compile" the contract into code.
+      </mental_model>
       <rules>
-        1. OLD CODE IS SACRED: If it works, do not break it. Do not refactor stylistic issues unless necessary for the Mission.
-        2. NEW CODE IS GRACE: All new logic must follow the AAG (Actor-Action-Goal) pattern.
-        3. STRICTLY follow the signatures defined in <architecture_context>.
-        4. BEFORE every new function, write an AAG comment.
+        1. OLD CODE IS SACRED. If it works, do not touch it.
+        2. NEW CODE MUST HAVE CONTRACTS.
+           - BEFORE every function, write a Docstring containing the AAG logic.
+           - Example:
+             def calculate_tax(amount):
+                 ''' 
+                 Contract: Input(Amount) -> Rule(Region=EU?) -> Apply(VAT) : Apply(SalesTax) 
+                 '''
+                 # ... implementation ...
+        3. STRICTLY follow the Dependency Graph from <architecture_context>.
       </rules>
     </meta_instructions>
     """
@@ -255,7 +301,6 @@ def build_context(mode, source_dirs, mission_text):
 
         # --- MODE 4: DEVELOPER (Implementation) ---
         elif mode == "DEVELOPER":
-            # Note: Architecture now lives in .grace/ARCHITECTURE.md
             arch = get_grace_content("ARCHITECTURE.md")
             if arch: f.write(f'\n  <architecture_context><![CDATA[\n{arch}\n]]></architecture_context>\n')
             
@@ -269,7 +314,7 @@ def build_context(mode, source_dirs, mission_text):
                         path = os.path.join(r, file)
                         content = get_file_content(path).replace("]]>", "]]]]><![CDATA[>")
                         f.write(f'    <file path="{path}"><![CDATA[\n{content}\n]]></file>\n')
-            f.write('  </source_code>\n')
+            f.write('  </source_code_raw>\n')
 
         f.write('</grace_context>\n')
     print(f"✅ Generated: {output_xml}")
