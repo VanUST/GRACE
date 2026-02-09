@@ -1,3 +1,7 @@
+Here is the updated `README.md` reflecting the new **GRACE** workflow, **AAG** (Actor-Action-Goal) methodology, and the "Code as Translation" philosophy.
+
+---
+
 # GRACE Context Generator (`grace-ctx`)
 
 **`grace-ctx`** is a CLI utility that automates "Context-Driven Development" for LLMs. It implements the **GRACE Framework** (Graph-based Architectures) to generate high-fidelity, token-optimized context packets.
