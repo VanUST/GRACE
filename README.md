@@ -2,11 +2,9 @@
 
 **`grace-ctx`** is a command-line utility for generating high-fidelity LLM contexts using the **GRACE** (Graph-based Architectures) and **AAG** (Actor-Action-Goal) frameworks.
 
-Designed to be installed once and run anywhere, it automates the retrieval of research, code skeletons, and documentation to create a single XML context file. This ensures LLMs remain hallucination-free and strictly aligned with your project requirements, whether you are building from scratch or refactoring legacy spaghetti code.
+It aggregates your research, code, and documentation into a single, structured XML file tailored for LLMs. This keeps your project root clean by centralizing all generated contexts into a hidden `.grace/` folder.
 
 ## 📦 Installation
-
-This tool is designed to be installed as a global CLI command.
 
 1. **Clone/Download** this repository to a stable location (e.g., `~/tools/grace-context-master`).
 2. **Install** in editable mode:
@@ -18,12 +16,7 @@ pip install -e .
 ```
 
 3. **Verify:**
-You can now run `grace-ctx` from *any* terminal window.
-
-```bash
-grace-ctx --help
-
-```
+Run `grace-ctx --help` from any terminal.
 
 ---
 
@@ -31,29 +24,32 @@ grace-ctx --help
 
 ### 1. Project Setup
 
-Go to **any** project folder where you want to use LLM assistance. You do not need to copy the script. Just create these configuration files in your project root:
+Navigate to **any** project folder. You do not need to copy the script. Just create the configuration files:
 
 | File | Status | Description |
 | --- | --- | --- |
-| **`TASK.md`** | **Required** | The "Mission Statement". Describe what you want the LLM to do. |
-| **`specs/MANUAL_RULES.md`** | *Optional* | "Axioms" or strict business rules the LLM must obey (overrides research). |
-| **`SOURCES.txt`** | *Optional* | List of URLs or PDF paths for the **RESEARCH** phase. |
+| **`TASK.md`** | **Required** | The "Mission Statement". E.g., *"Refactor the auth module."* |
+| **`specs/MANUAL_RULES.md`** | *Optional* | Your strict logic/axioms (overrides research). |
+| **`SOURCES.txt`** | *Optional* | List of URLs or PDF paths for research. |
 
-### 2. The Commands
+### 2. Run the Tool
 
-The general syntax is:
-`grace-ctx [MODE] [OPTIONS]`
+Run the command corresponding to your current development stage. **All outputs are saved in the `.grace/` folder.**
 
-#### Modes
+```bash
+# 1. Research Phase (if needed)
+grace-ctx RESEARCH
+# Output: .grace/context_research.xml
 
-* **`RESEARCH`**: Scrapes `SOURCES.txt` and `MANUAL_RULES.md` to create a knowledge base.
-* **`ARCHITECT`**: Analyzes `specs/KNOWLEDGE.md` + your code structure to design architecture.
-* **`DEVELOPER`**: Reads `specs/ARCHITECTURE.md` + strict contracts to generate code.
+# 2. Architect Phase
+grace-ctx ARCHITECT --src src
+# Output: .grace/context_architect.xml
 
-#### Options
+# 3. Developer Phase
+grace-ctx DEVELOPER --src src
+# Output: .grace/context_developer.xml
 
-* `--src [dirs...]`: Specify source folders (default: `src`).
-* `--legacy`: trigger **Legacy Mode** (see below).
+```
 
 ---
 
@@ -61,101 +57,83 @@ The general syntax is:
 
 ### A. The "Greenfield" Flow (New Features)
 
-Use this for new projects or clean, AAG-compliant codebases.
+Use this for new projects or clean codebases.
 
-1. **Define the Task:** Edit `TASK.md`.
-2. **Research (Optional):**
-```bash
-grace-ctx RESEARCH
-
-```
-
-
-*Output:* `context_research.xml`. Upload to LLM -> Save result as `specs/KNOWLEDGE.md`.
-3. **Design:**
-```bash
-grace-ctx ARCHITECT --src src
-
-```
-
-
-*Output:* `context_architect.xml`. Upload to LLM -> Save result as `specs/ARCHITECTURE.md`.
-4. **Code:**
-```bash
-grace-ctx DEVELOPER --src src
-
-```
-
-
-*Output:* `context_developer.xml`. Upload to LLM -> LLM writes the code.
-
----
+1. **Research:** Run `grace-ctx RESEARCH`. Upload `.grace/context_research.xml` to LLM. Ask it to generate `specs/KNOWLEDGE.md`.
+2. **Architect:** Run `grace-ctx ARCHITECT`. Upload `.grace/context_architect.xml`. Ask it to generate `specs/ARCHITECTURE.md`.
+3. **Develop:** Run `grace-ctx DEVELOPER`. Upload `.grace/context_developer.xml`. The LLM writes the code.
 
 ### B. The "Legacy" Flow (Refactoring)
 
-Use this for existing projects that are **not** GRACE/AAG compliant.
+Use this for existing "spaghetti code" projects.
 
-**Key Differences:**
+**Key Difference:** Uses the `--legacy` flag to inject refactoring instructions and read full file contents during the architecture phase.
 
-* **Full Context:** Reads full file contents (not just skeletons) so the Architect understands the implementation details.
-* **Refactoring Prompts:** Injects specific instructions to "Audit," "Plan Migration," and "Wrap Legacy Logic."
-
-**Example:**
-Refactoring a messy `lib` folder and `scripts` folder.
-
-1. **Audit & Plan:**
 ```bash
-grace-ctx ARCHITECT --src lib scripts --legacy
+# Example: Refactoring a messy 'lib' folder
+grace-ctx ARCHITECT --src lib --legacy
 
 ```
 
+* **Output:** `.grace/context_architect.xml`
+* **LLM Instruction:** "Audit this code and create a Migration Strategy in `specs/ARCHITECTURE.md`."
 
-*The LLM will produce a "Migration Strategy" in `specs/ARCHITECTURE.md`.*
-2. **Refactor:**
-```bash
-grace-ctx DEVELOPER --src lib scripts --legacy
+---
+
+## ⚙️ Configuration & Best Practices
+
+### The `.grace/` Folder
+
+The tool automatically creates a `.grace/` directory in your project root to store the heavy XML context files.
+
+**Recommendation:** Add this to your `.gitignore` to keep your repo clean.
+
+```text
+# .gitignore
+.grace/
 
 ```
 
+### Advanced Options
 
-*The LLM will rewrite code to fit the new architecture while preserving original business logic.*
+**Multi-Folder Parsing:**
+If your source code is split (e.g., backend/frontend), list them all:
 
----
-
-## 📂 Configuration Details
-
-### `specs/MANUAL_RULES.md`
-
-This file is your "God Mode". Anything written here is treated as an immutable fact by the LLM. Use it for:
-
-* Proprietary formulas.
-* Strict business constraints ("Users cannot delete invoices").
-* Architecture decisions ("Must use PostgreSQL, not Mongo").
-
-### `SOURCES.txt`
-
-A simple list of line-separated sources.
-
-* **URLs:** `https://api.example.com/v1/docs`
-* **PDFs:** `/home/user/downloads/whitepaper.pdf` (Requires `docling` installed).
-
----
-
-## 🔧 Troubleshooting
-
-**"Command not found: grace-ctx"**
-
-* Ensure you ran `pip install -e .` inside the tool's directory.
-* Check that your Python `Scripts` or `bin` folder is in your system `PATH`.
-
-**PDFs are ignored**
-
-* The tool requires `docling` for PDF support. Run `pip install docling`.
-
-**Context file is too large**
-
-* If `context_developer.xml` exceeds the LLM's context window, run the command on specific subdirectories:
 ```bash
-grace-ctx DEVELOPER --src src/auth src/utils
+grace-ctx DEVELOPER --src backend frontend shared
+
+```
+
+**Manual Rules (The "Axiom" Layer):**
+Create `specs/MANUAL_RULES.md` to force specific constraints. Content here is treated as "Immutable Truth" by the LLM.
+
+* *Example:* "Tax calculations must always round UP to the nearest integer."
+
+### PDF Support
+
+To parse PDFs listed in `SOURCES.txt`, you must install the optional dependency:
+
+```bash
+pip install docling
+
+```
+
+---
+
+## 📂 Example Project Structure
+
+After running the tool, your project will look like this:
+
+```text
+my-project/
+├── .grace/                 # [Generated] Hidden folder for contexts
+│   ├── context_research.xml
+│   └── context_developer.xml
+├── src/                    # Your code
+├── specs/
+│   ├── MANUAL_RULES.md     # Your rules
+│   └── ARCHITECTURE.md     # LLM generated plan
+├── TASK.md                 # Your prompt
+└── .gitignore
 
 ```

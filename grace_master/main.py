@@ -32,7 +32,6 @@ except ImportError:
     pass
 
 # --- PROMPT TEMPLATES ---
-
 BASE_PROMPTS = {
     "RESEARCH": """
     <meta_instructions role="RESEARCHER">
@@ -73,7 +72,6 @@ BASE_PROMPTS = {
     """
 }
 
-# --- LEGACY WORKFLOW INJECTIONS ---
 LEGACY_INSTRUCTIONS = {
     "ARCHITECT": """
       <legacy_mode_active>TRUE</legacy_mode_active>
@@ -153,7 +151,6 @@ def get_file_content(path):
     return ""
 
 def generate_multi_tree(start_paths, exclude_dirs):
-    """Generates a combined tree for multiple source directories."""
     tree_str = ""
     for start_path in start_paths:
         if not os.path.exists(start_path):
@@ -179,8 +176,15 @@ def extract_skeleton(content):
 # --- MAIN BUILDER LOGIC ---
 
 def build_context(mode, source_dirs, is_legacy=False):
-    output_xml = f"context_{mode.lower()}.xml"
-    exclude = [".git", "__pycache__", "venv", "node_modules", "specs", ".idea", ".vscode"]
+    # --- CHANGED: Centralized Output Folder ---
+    output_dir = ".grace"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+        print(f"📁 Created centralized context folder: {output_dir}/")
+        
+    output_xml = os.path.join(output_dir, f"context_{mode.lower()}.xml")
+    
+    exclude = [".git", "__pycache__", "venv", "node_modules", "specs", ".idea", ".vscode", ".grace"]
     
     print(f"🚀 Building Context for: {mode}")
     print(f"📂 Sources: {source_dirs}")
@@ -189,7 +193,7 @@ def build_context(mode, source_dirs, is_legacy=False):
     with open(output_xml, 'w', encoding='utf-8') as f:
         f.write(f'<grace_context mode="{mode}">\n')
         
-        # 1. INJECT PROMPTS (With Legacy Override)
+        # 1. INJECT PROMPTS
         prompt_content = BASE_PROMPTS.get(mode, "")
         if is_legacy and mode in LEGACY_INSTRUCTIONS:
             prompt_content += f"\n{LEGACY_INSTRUCTIONS[mode]}"
@@ -201,12 +205,10 @@ def build_context(mode, source_dirs, is_legacy=False):
 
         # --- MODE 1: RESEARCH ---
         if mode == "RESEARCH":
-            # A. Manual Rules (High Priority)
             manual_rules = get_file_content("specs/MANUAL_RULES.md")
             if manual_rules:
                 f.write(f'\n  <user_logic type="axiom"><![CDATA[\n{manual_rules}\n]]></user_logic>\n')
             
-            # B. External Sources
             f.write('\n  <raw_sources>\n')
             if os.path.exists("SOURCES.txt"):
                 with open("SOURCES.txt", 'r') as s:
@@ -232,8 +234,6 @@ def build_context(mode, source_dirs, is_legacy=False):
                     for file in files:
                         path = os.path.join(r, file)
                         content = get_file_content(path)
-                        # If legacy, Architect might need full code to understand the mess. 
-                        # If standard, skeleton is enough.
                         final_content = content if is_legacy else extract_skeleton(content)
                         f.write(f'    <file path="{path}"><![CDATA[\n{final_content}\n]]></file>\n')
             f.write('  </current_codebase>\n')
@@ -264,8 +264,6 @@ def main_entry_point():
     parser.add_argument("--legacy", action="store_true")
     
     args = parser.parse_args()
-    
-    # Defaults to current working directory if not absolute path
     build_context(args.mode, args.src, args.legacy)
 
 if __name__ == "__main__":
