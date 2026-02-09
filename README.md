@@ -1,6 +1,4 @@
-Here is the updated `README.md` reflecting the new **GRACE** workflow, **AAG** (Actor-Action-Goal) methodology, and the "Code as Translation" philosophy.
-
----
+Here is the updated `README.md` including the new **EXPLAIN** mode.
 
 # GRACE Context Generator (`grace-ctx`)
 
@@ -88,7 +86,20 @@ grace-ctx DEVELOPER -m "Implement the PaymentService based on the architecture."
 * **Output:** `.grace/context_developer.xml`
 * **LLM Instruction:** "Translate the contracts into Python/JS code. Do not invent new logic."
 
-### 3. ♻️ REFACTOR Mode (Legacy Overhaul)
+### 3. 🔦 EXPLAIN Mode (The "Archeologist")
+
+**Goal:** Document the existing system state (AS-IS) without modification.
+**Mechanism:** Scans the full codebase to reverse-engineer the hidden business logic into a readable **AAG Architecture**. Perfect for onboarding or pre-refactoring analysis.
+
+```bash
+grace-ctx EXPLAIN -m "Explain how the billing module calculates taxes." --src src
+
+```
+
+* **Output:** `.grace/context_explain.xml`
+* **LLM Instruction:** "Document the current logic using AAG. Do not propose changes."
+
+### 4. ♻️ REFACTOR Mode (Legacy Overhaul)
 
 **Goal:** Reverse-engineer and fix messy "spaghetti code."
 **Mechanism:** Ignores existing patterns. It reads **Raw Code** to understand the *business intent*, then redesigns the architecture from scratch using GRACE principles.
@@ -98,9 +109,9 @@ grace-ctx REFACTOR -m "Decouple the Auth logic from the User Controller." --src 
 
 ```
 
-* **Output:** `.grace/context_architect.xml` (Targeting a new architecture)
+* **Output:** `.grace/context_refactor.xml` (Targeting a new architecture)
 
-### 4. 🔬 RESEARCH Mode (The "Scientist")
+### 5. 🔬 RESEARCH Mode (The "Scientist")
 
 **Goal:** Gather domain knowledge (e.g., for Math, Science, or complex specs).
 **Mechanism:** Scrapes URLs/PDFs from `SOURCES.txt` and distills them into a strict **O-M-I** (Observation-Model-Implementation) specification.
