@@ -1,16 +1,16 @@
-# GRACE Context Master (CLI Tool)
+# GRACE Context Generator (`grace-ctx`)
 
-**`grace-ctx`** is a command-line utility for generating high-fidelity LLM contexts using the **GRACE** (Graph-based Architectures) and **AAG** (Actor-Action-Goal) frameworks.
+**`grace-ctx`** is a CLI utility that generates high-fidelity, token-optimized contexts for Large Language Models (LLMs). It automates the "Context-Driven Development" workflow by aggregating your code, research, and documentation into structured XML packets that LLMs can digest easily.
 
-It aggregates your research, code, and documentation into a single, structured XML file tailored for LLMs. This keeps your project root clean by centralizing all generated contexts into a hidden `.grace/` folder.
+It keeps your project root clean by centralizing all context and specification files into a hidden `.grace/` directory.
 
 ## 📦 Installation
 
-1. **Clone/Download** this repository to a stable location (e.g., `~/tools/grace-context-master`).
+1. **Clone** this repository to a stable location (e.g., `~/tools/grace-context`).
 2. **Install** in editable mode:
 
 ```bash
-cd ~/tools/grace-context-master
+cd ~/tools/grace-context
 pip install -e .
 
 ```
@@ -18,100 +18,9 @@ pip install -e .
 3. **Verify:**
 Run `grace-ctx --help` from any terminal.
 
----
+### Optional Dependencies
 
-## 🚀 Quick Start
-
-### 1. Project Setup
-
-Navigate to **any** project folder. You do not need to copy the script. Just create the configuration files:
-
-| File | Status | Description |
-| --- | --- | --- |
-| **`TASK.md`** | **Required** | The "Mission Statement". E.g., *"Refactor the auth module."* |
-| **`specs/MANUAL_RULES.md`** | *Optional* | Your strict logic/axioms (overrides research). |
-| **`SOURCES.txt`** | *Optional* | List of URLs or PDF paths for research. |
-
-### 2. Run the Tool
-
-Run the command corresponding to your current development stage. **All outputs are saved in the `.grace/` folder.**
-
-```bash
-# 1. Research Phase (if needed)
-grace-ctx RESEARCH
-# Output: .grace/context_research.xml
-
-# 2. Architect Phase
-grace-ctx ARCHITECT --src src
-# Output: .grace/context_architect.xml
-
-# 3. Developer Phase
-grace-ctx DEVELOPER --src src
-# Output: .grace/context_developer.xml
-
-```
-
----
-
-## 🛠 Usage Workflows
-
-### A. The "Greenfield" Flow (New Features)
-
-Use this for new projects or clean codebases.
-
-1. **Research:** Run `grace-ctx RESEARCH`. Upload `.grace/context_research.xml` to LLM. Ask it to generate `specs/KNOWLEDGE.md`.
-2. **Architect:** Run `grace-ctx ARCHITECT`. Upload `.grace/context_architect.xml`. Ask it to generate `specs/ARCHITECTURE.md`.
-3. **Develop:** Run `grace-ctx DEVELOPER`. Upload `.grace/context_developer.xml`. The LLM writes the code.
-
-### B. The "Legacy" Flow (Refactoring)
-
-Use this for existing "spaghetti code" projects.
-
-**Key Difference:** Uses the `--legacy` flag to inject refactoring instructions and read full file contents during the architecture phase.
-
-```bash
-# Example: Refactoring a messy 'lib' folder
-grace-ctx ARCHITECT --src lib --legacy
-
-```
-
-* **Output:** `.grace/context_architect.xml`
-* **LLM Instruction:** "Audit this code and create a Migration Strategy in `specs/ARCHITECTURE.md`."
-
----
-
-## ⚙️ Configuration & Best Practices
-
-### The `.grace/` Folder
-
-The tool automatically creates a `.grace/` directory in your project root to store the heavy XML context files.
-
-**Recommendation:** Add this to your `.gitignore` to keep your repo clean.
-
-```text
-# .gitignore
-.grace/
-
-```
-
-### Advanced Options
-
-**Multi-Folder Parsing:**
-If your source code is split (e.g., backend/frontend), list them all:
-
-```bash
-grace-ctx DEVELOPER --src backend frontend shared
-
-```
-
-**Manual Rules (The "Axiom" Layer):**
-Create `specs/MANUAL_RULES.md` to force specific constraints. Content here is treated as "Immutable Truth" by the LLM.
-
-* *Example:* "Tax calculations must always round UP to the nearest integer."
-
-### PDF Support
-
-To parse PDFs listed in `SOURCES.txt`, you must install the optional dependency:
+To enable PDF parsing for research mode:
 
 ```bash
 pip install docling
@@ -120,20 +29,127 @@ pip install docling
 
 ---
 
-## 📂 Example Project Structure
+## 🚀 Quick Start
 
-After running the tool, your project will look like this:
+Navigate to your project folder. You do not need to copy the script.
+
+**1. The "Mission" Flag**
+Instead of editing a text file for every task, pass your goal directly via the `-m` (or `--mission`) flag.
+
+**2. Generate Context**
+Run the command corresponding to your current stage of development.
+
+```bash
+# Example: Fixing a bug
+grace-ctx DEVELOPER -m "Fix the race condition in the user login flow." --src src
+
+```
+
+**3. Feed the LLM**
+Upload the generated file (e.g., `.grace/context_developer.xml`) to your LLM (Claude, GPT-4, etc.).
+
+---
+
+## 🛠 Usage Workflows
+
+### 1. The "Architect" Flow (New Features)
+
+Use this when adding new modules to an existing codebase.
+
+1. **Run:**
+```bash
+grace-ctx ARCHITECT -m "Design a plugin system for payment gateways." --src src
+
+```
+
+
+* *What it does:* Scans your code structure (skeletons only) to save tokens, and asks the LLM to design the new feature.
+
+
+2. **Upload:** `.grace/context_architect.xml`
+3. **LLM Output:** Ask the LLM to write the design to `.grace/ARCHITECTURE.md`.
+
+### 2. The "Developer" Flow (Implementation)
+
+Use this to write code based on an architecture or to fix bugs.
+
+1. **Run:**
+```bash
+grace-ctx DEVELOPER -m "Implement the Stripe payment adapter based on the architecture." --src src
+
+```
+
+
+* *What it does:* Bundles the architecture docs + raw source code + your specific mission.
+
+
+2. **Upload:** `.grace/context_developer.xml`
+3. **LLM Output:** The LLM produces the actual code.
+
+### 3. The "Refactor" Flow (Legacy Overhaul)
+
+Use this when you want to redesign a messy system from scratch.
+
+1. **Run:**
+```bash
+grace-ctx REFACTOR -m "Rewrite the authentication logic to be stateless." --src src/legacy_auth
+
+```
+
+
+* *What it does:* Reads **raw code** (deep logic analysis) instead of skeletons, and instructs the LLM to ignore current patterns and design a *new* ideal state.
+
+
+
+### 4. The "Research" Flow (Knowledge Gathering)
+
+Use this before writing code if the domain is complex (e.g., Physics simulations, Legal tech).
+
+1. **Setup:** Create a `SOURCES.txt` file with URLs or PDF paths.
+2. **Run:**
+```bash
+grace-ctx RESEARCH -m "Research best practices for lattice boltzmann methods."
+
+```
+
+
+3. **Upload:** `.grace/context_research.xml`
+4. **LLM Output:** Ask LLM to save findings to `.grace/KNOWLEDGE.md`.
+
+---
+
+## 📂 Project Structure
+
+After running the tool, your project will look like this. **Note that your root directory remains clean.**
 
 ```text
 my-project/
-├── .grace/                 # [Generated] Hidden folder for contexts
-│   ├── context_research.xml
-│   └── context_developer.xml
-├── src/                    # Your code
-├── specs/
-│   ├── MANUAL_RULES.md     # Your rules
-│   └── ARCHITECTURE.md     # LLM generated plan
-├── TASK.md                 # Your prompt
+├── .grace/                 # [Hidden] The Brain of your project
+│   ├── context_developer.xml  # Upload this to LLM
+│   ├── ARCHITECTURE.md     # (Optional) LLM-generated plan
+│   ├── KNOWLEDGE.md        # (Optional) Research notes
+│   └── MANUAL_RULES.md     # (Optional) User-defined axioms
+├── src/                    # Your actual code
+├── SOURCES.txt             # (Optional) List of research URLs
 └── .gitignore
+
+```
+
+## ⚙️ Configuration Files
+
+You can add these optional files to control the context generation:
+
+| File | Location | Description |
+| --- | --- | --- |
+| **`MANUAL_RULES.md`** | `.grace/` | **The Axioms.** Rules here override everything else. (e.g., "Always use snake_case", "Never use libraries X, Y"). |
+| **`SOURCES.txt`** | Root | A list of URLs or local file paths (PDFs supported) for the **RESEARCH** mode to scrape. |
+
+## 🛡️ .gitignore
+
+It is highly recommended to ignore the generated context folder to prevent bloating your git history.
+
+```text
+# .gitignore
+.grace/
 
 ```

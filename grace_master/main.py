@@ -8,6 +8,7 @@ from markdownify import markdownify as md
 
 # --- CONFIGURATION ---
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+GRACE_DIR = ".grace"
 
 # --- DOCLING API SETUP ---
 HAS_DOCLING = False
@@ -33,10 +34,10 @@ except ImportError:
 
 # --- PROMPT TEMPLATES ---
 BASE_PROMPTS = {
-    "RESEARCH": """
+    "RESEARCH": f"""
     <meta_instructions role="RESEARCHER">
       <goal>Distill information into a strict scientific specification (O-M-I).</goal>
-      <output_format>Markdown file named 'specs/KNOWLEDGE.md'</output_format>
+      <output_format>Markdown file named '{GRACE_DIR}/KNOWLEDGE.md'</output_format>
       <rules>
         1. PRIORITIZE <user_logic> (Manual Rules) over external sources. These are the axioms.
         2. Ignore marketing fluff. Focus on algorithms, math, and physics.
@@ -47,48 +48,42 @@ BASE_PROMPTS = {
       </rules>
     </meta_instructions>
     """,
-    "ARCHITECT": """
+    "ARCHITECT": f"""
     <meta_instructions role="ARCHITECT">
-      <goal>Design the software architecture based on MISSION and KNOWLEDGE.</goal>
-      <output_format>Markdown file named 'specs/ARCHITECTURE.md'</output_format>
+      <goal>Design or extend software architecture based on MISSION and KNOWLEDGE.</goal>
+      <output_format>Markdown file named '{GRACE_DIR}/ARCHITECTURE.md'</output_format>
       <rules>
-        1. Analyze the <mission> and <research_specs>.
-        2. Create a high-level dependency graph.
+        1. Analyze the <mission> and existing <current_codebase_structure>.
+        2. MAINTENANCE MODE: If <current_codebase_structure> exists, respect its patterns unless explicitly told to change them.
         3. DEFINE CONTRACTS: For every major module, write the interface.
         4. Use 'SKELETON' mode: Describe functions but do not implement logic.
+        5. OUTPUT: A high-level dependency graph and interface definitions.
+      </rules>
+    </meta_instructions>
+    """,
+    "REFACTOR": f"""
+    <meta_instructions role="LEAD_ARCHITECT">
+      <goal>Analyze existing codebase and Design a NEW Architecture from scratch.</goal>
+      <output_format>Markdown file named '{GRACE_DIR}/ARCHITECTURE.md'</output_format>
+      <rules>
+        1. IGNORE existing architectural flaws. You are designing the IDEAL state.
+        2. Analyze <source_code_raw> to understand the business logic required.
+        3. Create a dependency graph that solves the <mission>.
+        4. DEFINE MIGRATION: Briefly outline how to move from current state to new state.
       </rules>
     </meta_instructions>
     """,
     "DEVELOPER": """
     <meta_instructions role="DEVELOPER">
-      <goal>Implement the code based on ARCHITECTURE and CONTRACTS.</goal>
-      <methodology>GRACE Framework + AAG (Actor-Action-Goal)</methodology>
+      <goal>Implement code based on ARCHITECTURE and CONTRACTS.</goal>
+      <methodology>Hybrid: GRACE (New Code) + Preservation (Old Code)</methodology>
       <rules>
-        1. STRICTLY follow the signatures defined in <architecture_context>.
-        2. BEFORE every function, write an AAG comment.
-        3. Do NOT hallucinate new features. Stick to the plan.
+        1. OLD CODE IS SACRED: If it works, do not break it. Do not refactor stylistic issues unless necessary for the Mission.
+        2. NEW CODE IS GRACE: All new logic must follow the AAG (Actor-Action-Goal) pattern.
+        3. STRICTLY follow the signatures defined in <architecture_context>.
+        4. BEFORE every new function, write an AAG comment.
       </rules>
     </meta_instructions>
-    """
-}
-
-LEGACY_INSTRUCTIONS = {
-    "ARCHITECT": """
-      <legacy_mode_active>TRUE</legacy_mode_active>
-      <legacy_rules>
-        1. AUDIT: The <current_codebase> is LEGACY (Non-AAG compliant).
-        2. STRATEGY: Do not just overwrite. Design a "Refactoring Plan" or "Adapter Layer".
-        3. Identify "God Classes" to break down into Actors.
-        4. Output a migration path in ARCHITECTURE.md: "Current State -> Refactoring Steps -> Target AAG State".
-      </legacy_rules>
-    """,
-    "DEVELOPER": """
-      <legacy_mode_active>TRUE</legacy_mode_active>
-      <legacy_rules>
-        1. REFACTORING: You are converting legacy code to AAG.
-        2. PRESERVE LOGIC: Ensure the original business logic from <source_code> is kept, but wrapped in AAG structures.
-        3. If a file is too large, split it.
-      </legacy_rules>
     """
 }
 
@@ -150,6 +145,10 @@ def get_file_content(path):
         with open(path, 'r', encoding='utf-8') as f: return f.read()
     return ""
 
+def get_grace_content(filename):
+    """Helper to get content specifically from the hidden .grace directory"""
+    return get_file_content(os.path.join(GRACE_DIR, filename))
+
 def generate_multi_tree(start_paths, exclude_dirs):
     tree_str = ""
     for start_path in start_paths:
@@ -175,37 +174,33 @@ def extract_skeleton(content):
 
 # --- MAIN BUILDER LOGIC ---
 
-def build_context(mode, source_dirs, is_legacy=False):
-    # --- CHANGED: Centralized Output Folder ---
-    output_dir = ".grace"
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-        print(f"📁 Created centralized context folder: {output_dir}/")
+def build_context(mode, source_dirs, mission_text):
+    if not os.path.exists(GRACE_DIR):
+        os.makedirs(GRACE_DIR)
+        print(f"📁 Created centralized context folder: {GRACE_DIR}/")
         
-    output_xml = os.path.join(output_dir, f"context_{mode.lower()}.xml")
+    output_xml = os.path.join(GRACE_DIR, f"context_{mode.lower()}.xml")
     
-    exclude = [".git", "__pycache__", "venv", "node_modules", "specs", ".idea", ".vscode", ".grace"]
+    # Common exclude list
+    exclude = [".git", "__pycache__", "venv", "node_modules", "specs", ".idea", ".vscode", ".grace", "dist", "build"]
     
     print(f"🚀 Building Context for: {mode}")
+    print(f"🎯 Mission: {mission_text[:50]}...")
     print(f"📂 Sources: {source_dirs}")
-    if is_legacy: print("⚠️ LEGACY MODE ACTIVE: Injecting Refactoring Prompts")
 
     with open(output_xml, 'w', encoding='utf-8') as f:
         f.write(f'<grace_context mode="{mode}">\n')
         
-        # 1. INJECT PROMPTS
+        # 1. INJECT PROMPT
         prompt_content = BASE_PROMPTS.get(mode, "")
-        if is_legacy and mode in LEGACY_INSTRUCTIONS:
-            prompt_content += f"\n{LEGACY_INSTRUCTIONS[mode]}"
         f.write(prompt_content)
         
-        # 2. INJECT MISSION
-        mission = get_file_content("TASK.md")
-        if mission: f.write(f'\n  <mission><![CDATA[\n{mission}\n]]></mission>\n')
+        # 2. INJECT MISSION (Required for all modes, from CLI arg)
+        f.write(f'\n  <mission><![CDATA[\n{mission_text}\n]]></mission>\n')
 
         # --- MODE 1: RESEARCH ---
         if mode == "RESEARCH":
-            manual_rules = get_file_content("specs/MANUAL_RULES.md")
+            manual_rules = get_grace_content("MANUAL_RULES.md")
             if manual_rules:
                 f.write(f'\n  <user_logic type="axiom"><![CDATA[\n{manual_rules}\n]]></user_logic>\n')
             
@@ -219,12 +214,12 @@ def build_context(mode, source_dirs, is_legacy=False):
                         f.write(f'    <article source="{source_path}"><![CDATA[\n{safe_content}\n]]></article>\n')
             f.write('  </raw_sources>\n')
 
-        # --- MODE 2: ARCHITECT ---
+        # --- MODE 2: ARCHITECT (Maintenance/Extension) ---
         elif mode == "ARCHITECT":
-            specs = get_file_content("specs/KNOWLEDGE.md")
+            specs = get_grace_content("KNOWLEDGE.md")
             if specs: f.write(f'\n  <research_specs><![CDATA[\n{specs}\n]]></research_specs>\n')
             
-            f.write(f'\n  <current_codebase type="{"legacy_full" if is_legacy else "skeleton"}">\n')
+            f.write(f'\n  <current_codebase_structure>\n')
             f.write(f'    <tree><![CDATA[\n{generate_multi_tree(source_dirs, exclude)}\n]]></tree>\n')
             
             for src_dir in source_dirs:
@@ -232,15 +227,36 @@ def build_context(mode, source_dirs, is_legacy=False):
                 for r, d, files in os.walk(src_dir):
                     d[:] = [x for x in d if x not in exclude]
                     for file in files:
+                        if file.endswith(('.pyc', '.png', '.jpg', '.exe')): continue
                         path = os.path.join(r, file)
                         content = get_file_content(path)
-                        final_content = content if is_legacy else extract_skeleton(content)
-                        f.write(f'    <file path="{path}"><![CDATA[\n{final_content}\n]]></file>\n')
-            f.write('  </current_codebase>\n')
+                        skeleton = extract_skeleton(content)
+                        f.write(f'    <file path="{path}" type="skeleton"><![CDATA[\n{skeleton}\n]]></file>\n')
+            f.write('  </current_codebase_structure>\n')
 
-        # --- MODE 3: DEVELOPER ---
+        # --- MODE 3: REFACTOR (New Architecture from Old Code) ---
+        elif mode == "REFACTOR":
+            specs = get_grace_content("KNOWLEDGE.md")
+            if specs: f.write(f'\n  <research_specs><![CDATA[\n{specs}\n]]></research_specs>\n')
+            
+            f.write(f'\n  <source_code_raw>\n')
+            f.write(f'    <tree><![CDATA[\n{generate_multi_tree(source_dirs, exclude)}\n]]></tree>\n')
+            
+            for src_dir in source_dirs:
+                if not os.path.exists(src_dir): continue
+                for r, d, files in os.walk(src_dir):
+                    d[:] = [x for x in d if x not in exclude]
+                    for file in files:
+                        if file.endswith(('.pyc', '.png', '.jpg', '.exe')): continue
+                        path = os.path.join(r, file)
+                        content = get_file_content(path).replace("]]>", "]]]]><![CDATA[>")
+                        f.write(f'    <file path="{path}"><![CDATA[\n{content}\n]]></file>\n')
+            f.write('  </source_code_raw>\n')
+
+        # --- MODE 4: DEVELOPER (Implementation) ---
         elif mode == "DEVELOPER":
-            arch = get_file_content("specs/ARCHITECTURE.md")
+            # Note: Architecture now lives in .grace/ARCHITECTURE.md
+            arch = get_grace_content("ARCHITECTURE.md")
             if arch: f.write(f'\n  <architecture_context><![CDATA[\n{arch}\n]]></architecture_context>\n')
             
             f.write(f'\n  <source_code>\n    <tree><![CDATA[\n{generate_multi_tree(source_dirs, exclude)}\n]]></tree>\n')
@@ -249,6 +265,7 @@ def build_context(mode, source_dirs, is_legacy=False):
                 for r, d, files in os.walk(src_dir):
                     d[:] = [x for x in d if x not in exclude]
                     for file in files:
+                        if file.endswith(('.pyc', '.png', '.jpg', '.exe')): continue
                         path = os.path.join(r, file)
                         content = get_file_content(path).replace("]]>", "]]]]><![CDATA[>")
                         f.write(f'    <file path="{path}"><![CDATA[\n{content}\n]]></file>\n')
@@ -259,12 +276,12 @@ def build_context(mode, source_dirs, is_legacy=False):
 
 def main_entry_point():
     parser = argparse.ArgumentParser(description="GRACE Context Generator")
-    parser.add_argument("mode", choices=["RESEARCH", "ARCHITECT", "DEVELOPER"])
-    parser.add_argument("--src", nargs='+', default=["src"])
-    parser.add_argument("--legacy", action="store_true")
+    parser.add_argument("mode", choices=["RESEARCH", "ARCHITECT", "DEVELOPER", "REFACTOR"])
+    parser.add_argument("-m", "--mission", required=True, help="The specific task or mission description for this run")
+    parser.add_argument("--src", nargs='+', default=["src"], help="Source directories to scan")
     
     args = parser.parse_args()
-    build_context(args.mode, args.src, args.legacy)
+    build_context(args.mode, args.src, args.mission)
 
 if __name__ == "__main__":
     main_entry_point()
