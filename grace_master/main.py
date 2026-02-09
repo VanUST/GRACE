@@ -82,6 +82,28 @@ BASE_PROMPTS = {
       </rules>
     </meta_instructions>
     """,
+
+    "EXPLAIN": f"""
+    <meta_instructions role="CODE_ARCHEOLOGIST">
+      <goal>Document the AS-IS architecture of the provided codebase.</goal>
+      <output_format>Markdown file named '{GRACE_DIR}/ARCHITECTURE.md'</output_format>
+      {AAG_DEFINITION}
+      <formatting_rules>
+        1. OUTPUT ONLY MARKDOWN. No XML tags.
+        2. Use MermaidJS for the Dependency Graph.
+      </formatting_rules>
+      <methodology>
+        STEP 1: ANALYSIS. Scan the <source_code_raw> to understand the flow of data.
+        STEP 2: GRAPHING. Generate a MermaidJS graph showing how modules interact (Imports/Calls).
+        STEP 3: DOCUMENTATION. For every key function/class, write an 'AAG Contract' describing exactly what it does now.
+      </methodology>
+      <rules>
+        1. DO NOT PROPOSE CHANGES. Document strictly what exists.
+        2. Be concise. Convert verbose code into compressed AAG logic.
+        3. Explain 'Why' the code is structured this way if apparent.
+      </rules>
+    </meta_instructions>
+    """,
     
     "REFACTOR": f"""
     <meta_instructions role="SYSTEM_ARCHITECT">
@@ -112,7 +134,6 @@ BASE_PROMPTS = {
       <mental_model>
         You are a TRANSLATOR. 
         Source Language: AAG Contracts (in ARCHITECTURE.md).
-        Target Language: Python/JS/Go (Code).
         
         Your SFT training treats this as "Translation". 
         Do not "invent" logic. "Compile" the contract into code.
@@ -280,10 +301,11 @@ def build_context(mode, source_dirs, mission_text):
                         f.write(f'    <file path="{path}" type="skeleton"><![CDATA[\n{skeleton}\n]]></file>\n')
             f.write('  </current_codebase_structure>\n')
 
-        # --- MODE 3: REFACTOR (New Architecture from Old Code) ---
-        elif mode == "REFACTOR":
-            specs = get_grace_content("KNOWLEDGE.md")
-            if specs: f.write(f'\n  <research_specs><![CDATA[\n{specs}\n]]></research_specs>\n')
+        # --- MODE 3 & 4: EXPLAIN & REFACTOR (Requires Full Code to understand logic) ---
+        elif mode in ["REFACTOR", "EXPLAIN"]:
+            if mode == "REFACTOR":
+                specs = get_grace_content("KNOWLEDGE.md")
+                if specs: f.write(f'\n  <research_specs><![CDATA[\n{specs}\n]]></research_specs>\n')
             
             f.write(f'\n  <source_code_raw>\n')
             f.write(f'    <tree><![CDATA[\n{generate_multi_tree(source_dirs, exclude)}\n]]></tree>\n')
@@ -299,7 +321,7 @@ def build_context(mode, source_dirs, mission_text):
                         f.write(f'    <file path="{path}"><![CDATA[\n{content}\n]]></file>\n')
             f.write('  </source_code_raw>\n')
 
-        # --- MODE 4: DEVELOPER (Implementation) ---
+        # --- MODE 5: DEVELOPER (Implementation) ---
         elif mode == "DEVELOPER":
             arch = get_grace_content("ARCHITECTURE.md")
             if arch: f.write(f'\n  <architecture_context><![CDATA[\n{arch}\n]]></architecture_context>\n')
@@ -321,7 +343,7 @@ def build_context(mode, source_dirs, mission_text):
 
 def main_entry_point():
     parser = argparse.ArgumentParser(description="GRACE Context Generator")
-    parser.add_argument("mode", choices=["RESEARCH", "ARCHITECT", "DEVELOPER", "REFACTOR"])
+    parser.add_argument("mode", choices=["RESEARCH", "ARCHITECT", "DEVELOPER", "REFACTOR", "EXPLAIN"])
     parser.add_argument("-m", "--mission", required=True, help="The specific task or mission description for this run")
     parser.add_argument("--src", nargs='+', default=["src"], help="Source directories to scan")
     
