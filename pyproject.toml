@@ -13,5 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-# This maps the word "grace" in your terminal to the main() function in main.py
 grace = "grace_app.main:main"
+
+[tool.setuptools.package-data]
+"grace_app" = ["assets/*"]
