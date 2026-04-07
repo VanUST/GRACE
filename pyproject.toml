@@ -4,16 +4,20 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "grace-manager"
-version = "1.0.0"
-description = "GRACE Framework Workflow & Context Manager"
+version = "2.0.0"
+description = "GRACE Context Manager - Smart context assembly for LLM workflows"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
-    "customtkinter"
+    "customtkinter>=5.2.0"
 ]
 
 [project.scripts]
 grace = "grace_app.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["grace_app*"]
 
 [tool.setuptools.package-data]
 "grace_app" = ["assets/*"]

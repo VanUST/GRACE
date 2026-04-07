@@ -1,20 +1,57 @@
-# GRACE Workflow Manager
+# GRACE Context Manager
 
-A modern, CLI-callable GUI application built with CustomTkinter for managing the GRACE (Graph-RAG Anchored Code Engineering) workflow. 
+A modern GUI tool for assembling high-quality context for LLM coding assistants. Built with CustomTkinter.
 
-This tool serves as the bridge between high-level LLM architectural planning (Gemini) and deterministic, agent-driven execution (GLM-5 / Kilo Code).
+## Key Features
 
-## Features
-* **Architect (XML Forms):** Interactively generate and manage `RequirementsAnalysis.xml`, `Technology.xml`, and `DevelopmentPlan.xml`.
-* **Context Builder:** Seamlessly parse project directories, filter files by extension or explicit ignore lists, and copy heavily structured context directly to your clipboard for LLM handoff.
-* **LDD Monitor:** Instantly read `agent_error.log` to review your execution agent's Belief State and structured traces without running the code manually.
+- **Context Blocks**: Reusable text snippets organized by category (tech stack, constraints, rules). Toggle on/off as needed.
+- **Smart File Selection**: Tree view with checkboxes, file size display, and quick select/deselect.
+- **Advanced Filtering**: Filter by extension, ignore patterns, and content search.
+- **Filter Presets**: Save and load filter configurations for different project types.
+- **Live Preview**: See assembled context with token count estimation before copying.
+- **Preview Modes**: Full context, structure only, or files only.
 
 ## Installation
 
-Ensure you have Python 3.8+ installed. 
+```bash
+pip install -e .
+```
 
-1. Clone this repository.
-2. Navigate to the root directory containing `pyproject.toml`.
-3. Install the package globally in editable mode:
-   ```bash
-   pip install -e .
+Then run:
+```bash
+grace
+```
+
+## Workflow
+
+1. **Select Project**: Click 📂 to choose your project directory
+2. **Add Context Blocks**: Create reusable blocks for tech stack, coding rules, etc.
+3. **Filter Files**: Set extensions, ignore dirs/files, optional content filter
+4. **Select Files**: Check files/directories to include in context
+5. **Add Instruction**: Write your task in the instruction box
+6. **Copy**: Click "Copy Context" and paste into your LLM
+
+## Context Blocks
+
+Context blocks are saved in `~/.grace_manager/profiles.json`. They persist across sessions.
+
+Organize blocks by category:
+- `tech` - Technology stack info
+- `constraints` - Coding rules and constraints  
+- `context` - Project-specific context
+- Any custom category
+
+## Filter Presets
+
+Save common filter configurations:
+- Python project: `.py, .toml, .yaml, .md`
+- Web project: `.js, .ts, .jsx, .tsx, .css, .html`
+- Config only: `.yaml, .json, .toml`
+
+Presets are saved in `~/.grace_manager/filter_presets.json`.
+
+## Keyboard Shortcuts
+
+- `Ctrl+A` - Select all files
+- `Ctrl+D` - Deselect all files
+- `Ctrl+C` - Copy context (when preview focused)
