@@ -7,9 +7,11 @@ A modern GUI tool for assembling high-quality context for LLM coding assistants.
 - **Context Blocks**: Reusable text snippets organized by category (tech stack, constraints, rules). Toggle on/off as needed.
 - **Smart File Selection**: Tree view with checkboxes, file size display, and quick select/deselect.
 - **Advanced Filtering**: Filter by extension, ignore patterns, and content search.
-- **Filter Presets**: Save and load filter configurations for different project types.
+- **Dynamic Extension Detection**: Auto-detect all file extensions in your project with select/deselect all for quick filtering.
 - **Live Preview**: See assembled context with token count estimation before copying.
 - **Preview Modes**: Full context, structure only, or files only.
+- **Dynamic Context Refresh**: Refresh selected file contents when files change on disk without re-selecting.
+- **Scalable UI**: Adjustable interface scaling (70%-200%) for different screen sizes and devices.
 
 ## Installation
 
@@ -24,12 +26,14 @@ grace
 
 ## Workflow
 
-1. **Select Project**: Click 📂 to choose your project directory
+1. **Select Project**: Click **Browse** to choose your project directory
 2. **Add Context Blocks**: Create reusable blocks for tech stack, coding rules, etc.
-3. **Filter Files**: Set extensions, ignore dirs/files, optional content filter
-4. **Select Files**: Check files/directories to include in context
-5. **Add Instruction**: Write your task in the instruction box
-6. **Copy**: Click "Copy Context" and paste into your LLM
+3. **Detect Extensions**: Click **Detect** to auto-discover all file extensions in the project, then toggle what to include
+4. **Filter Files**: Set extensions, ignore dirs/files, optional content filter
+5. **Select Files**: Check files/directories to include in context
+6. **Add Instruction**: Write your task in the instruction box
+7. **Refresh**: Click **Refresh Context** to reload changed files from disk
+8. **Copy**: Click **Copy Context** and paste into your LLM
 
 ## Context Blocks
 
@@ -37,21 +41,18 @@ Context blocks are saved in `~/.grace_manager/profiles.json`. They persist acros
 
 Organize blocks by category:
 - `tech` - Technology stack info
-- `constraints` - Coding rules and constraints  
+- `constraints` - Coding rules and constraints
 - `context` - Project-specific context
 - Any custom category
 
-## Filter Presets
+## UI Scaling
 
-Save common filter configurations:
-- Python project: `.py, .toml, .yaml, .md`
-- Web project: `.js, .ts, .jsx, .tsx, .css, .html`
-- Config only: `.yaml, .json, .toml`
+Use the slider in the sidebar to adjust the UI scale from 70% to 200%. Scaling preference is saved in `~/.grace_manager/settings.json` and persists across sessions.
 
-Presets are saved in `~/.grace_manager/filter_presets.json`.
+## Configuration Files
 
-## Keyboard Shortcuts
-
-- `Ctrl+A` - Select all files
-- `Ctrl+D` - Deselect all files
-- `Ctrl+C` - Copy context (when preview focused)
+| File | Purpose |
+|------|---------|
+| `~/.grace_manager/profiles.json` | Context blocks |
+| `~/.grace_manager/recent_projects.json` | Recently opened projects |
+| `~/.grace_manager/settings.json` | UI preferences (scaling, etc.) |
