@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grace-manager"
+version = "4.0.0"
+description = "GRACE Context Manager - Smart context assembly for LLM workflows"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "PyQt6>=6.5.0",
+]
+
+[project.scripts]
+grace = "grace_app.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["grace_app*"]
+
+[tool.setuptools.package-data]
+"grace_app" = ["assets/*"]
