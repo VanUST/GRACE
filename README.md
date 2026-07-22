@@ -14,7 +14,7 @@ A modern GUI tool for assembling high-quality context for LLM coding assistants.
 - **Scalable UI**: Adjustable interface scaling (75%-200%) for different screen sizes and devices.
 - **Keyboard Shortcuts**: Ctrl+C copy, Ctrl+N new block, Ctrl+R refresh, Ctrl+O browse, Ctrl+A/D select all/none.
 
-## One-Click Install (No Technical Skills Needed)
+## One-Click Install
 
 ### Windows
 
@@ -28,7 +28,7 @@ This installs Python (if needed), PyQt6, and GRACE automatically.
 ./install.sh
 ```
 
-### Manual Install (for developers)
+### Manual Install
 
 ```bash
 pip install -e .
