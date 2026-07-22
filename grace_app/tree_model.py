@@ -45,7 +45,7 @@ class FileTreeModel(QAbstractItemModel):
     def checked_paths(self) -> list:
         result = []
         for path, checked in self._checked_paths.items():
-            if checked and not os.path.isdir(path):
+            if checked:
                 result.append(path)
         result.sort()
         return result
@@ -258,18 +258,20 @@ class FileTreeModel(QAbstractItemModel):
                         continue
                 files.append(full)
 
+        parent_checked = self._checked_paths.get(node.path, False)
+
         for d in sorted(dirs):
             child = TreeNode(path=d, name=os.path.basename(d), is_dir=True, parent=node, depth=node.depth + 1)
+            if parent_checked:
+                self._checked_paths[d] = True
             node.children.append(child)
             self._node_index[d] = child
 
         for f in sorted(files):
             child = TreeNode(path=f, name=os.path.basename(f), is_dir=False, parent=node, depth=node.depth + 1)
 
-            if self._checked_paths.get(node.path, False):
-                self._checked_paths[child.path] = True
-            else:
-                self._checked_paths.pop(child.path, None)
+            if parent_checked:
+                self._checked_paths[f] = True
 
             try:
                 child.size = os.path.getsize(f)
