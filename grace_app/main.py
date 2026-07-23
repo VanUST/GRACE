@@ -28,7 +28,7 @@ from PyQt6.QtCore import (
 
 from .config import (
     CONFIG_DIR, PROFILES_FILE, RECENT_FILE, SETTINGS_FILE,
-    DEFAULT_EXTENSIONS, DEFAULT_IGNORE_DIRS, DEFAULT_IGNORE_FILES,
+    DEFAULT_EXTENSIONS, BUILTIN_IGNORE_DIRS, BUILTIN_IGNORE_FILES,
     SCALE_STEPS, MAX_FILE_SIZE,
 )
 from .models import ContextBlock
@@ -760,10 +760,7 @@ class GraceContextApp(QMainWindow):
                 pass
             self._ext_thread = None
 
-        ignore_dirs = {'.git', '__pycache__', 'venv', '.venv', 'env', '.env',
-                       'node_modules', '.tox', 'dist', 'build', '.idea', '.vscode',
-                       '.mypy_cache', '.pytest_cache', '.ruff_cache', 'egg-info'}
-        thread = ExtensionScanThread(self._selected_directory, ignore_dirs, self)
+        thread = ExtensionScanThread(self._selected_directory, BUILTIN_IGNORE_DIRS, self)
         thread.resultReady.connect(self._on_extensions_detected)
         thread.errorOccurred.connect(self._on_worker_error)
         thread.finished.connect(thread.deleteLater)
@@ -817,12 +814,8 @@ class GraceContextApp(QMainWindow):
 
     def _apply_filters_to_model(self):
         exts = sorted(self._selected_extensions)
-        ignore_dirs = {'.git', '__pycache__', 'venv', '.venv', 'env', '.env',
-                       'node_modules', '.tox', 'dist', 'build', '.idea', '.vscode',
-                       '.mypy_cache', '.pytest_cache', '.ruff_cache', 'egg-info'}
-        ignore_files = {'*.pyc', '*.pyo', '.DS_Store', 'Thumbs.db', '.gitignore', '.env'}
         keyword = self._filter_keyword.text().strip()
-        self._file_model.set_filters(exts, ignore_dirs, ignore_files, keyword)
+        self._file_model.set_filters(exts, BUILTIN_IGNORE_DIRS, BUILTIN_IGNORE_FILES, keyword)
         self._file_model.change_root(self._selected_directory)
         self._schedule_preview_rebuild()
 

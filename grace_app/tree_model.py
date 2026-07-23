@@ -224,7 +224,7 @@ class FileTreeModel(QAbstractItemModel):
         if not node or not node.is_dir:
             return False
         if not node.loaded:
-            self._load_children(node)
+            return True
         return any(c.visible for c in node.children)
 
     def _rebuild(self):

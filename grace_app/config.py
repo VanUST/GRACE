@@ -6,8 +6,9 @@ RECENT_FILE = CONFIG_DIR / "recent_projects.json"
 SETTINGS_FILE = CONFIG_DIR / "settings.json"
 
 DEFAULT_EXTENSIONS = ".py, .md, .txt, .json, .yaml, .toml, .cfg, .ini"
-DEFAULT_IGNORE_DIRS = ".git, __pycache__, venv, node_modules, .venv, env, .tox, dist, build"
-DEFAULT_IGNORE_FILES = ".env, secrets.py, credentials.json"
+
+BUILTIN_IGNORE_DIRS = {'__pycache__', 'venv', 'node_modules', 'egg-info'}
+BUILTIN_IGNORE_FILES = {'Thumbs.db'}
 
 SCALE_STEPS = [75, 90, 100, 110, 125, 150, 175, 200]
 
