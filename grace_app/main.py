@@ -342,7 +342,7 @@ class GraceContextApp(QMainWindow):
                 recent = json.loads(RECENT_FILE.read_text())
                 if recent and os.path.isdir(recent[0]):
                     self._selected_directory = recent[0]
-                    self._dir_label.setText(f" {self._selected_directory}")
+                    self._dir_edit.setText(self._selected_directory)
                     self._apply_filters_to_model()
         except Exception:
             pass
@@ -385,10 +385,11 @@ class GraceContextApp(QMainWindow):
 
         # ── Directory ──
         dir_row = QHBoxLayout()
-        self._dir_label = QLabel(f" {self._selected_directory}")
-        self._dir_label.setObjectName("dirLabel")
-        self._dir_label.setWordWrap(True)
-        dir_row.addWidget(self._dir_label, 1)
+        self._dir_edit = QLineEdit(self._selected_directory)
+        self._dir_edit.setPlaceholderText("Project root directory...")
+        self._dir_edit.setObjectName("dirEdit")
+        self._dir_edit.returnPressed.connect(self._on_dir_typed)
+        dir_row.addWidget(self._dir_edit, 1)
 
         self._recent_btn = QPushButton("Recent")
         self._recent_btn.clicked.connect(self._show_recent_menu)
@@ -496,9 +497,6 @@ class GraceContextApp(QMainWindow):
 
         self._selected_extensions: Set[str] = set()
         self._extension_checkboxes: Dict[str, QCheckBox] = {}
-        self._ignored_patterns: Set[str] = set()
-        self._ignore_checkboxes: Dict[str, QCheckBox] = {}
-        self._default_ignores: Set[str] = set()
 
         ext_frame = QFrame()
         ext_frame.setObjectName("panel")
@@ -522,7 +520,7 @@ class GraceContextApp(QMainWindow):
         ext_layout.addLayout(ext_hdr)
 
         self._ext_scroll = QScrollArea()
-        self._ext_scroll.setMaximumHeight(50)
+        self._ext_scroll.setMaximumHeight(120)
         self._ext_scroll.setWidgetResizable(True)
         self._ext_scroll.setFrameShape(QFrame.Shape.NoFrame)
         self._ext_container = QWidget()
@@ -536,51 +534,16 @@ class GraceContextApp(QMainWindow):
 
         layout.addWidget(ext_frame)
 
-        ign_frame = QFrame()
-        ign_frame.setObjectName("panel")
-        ign_layout = QVBoxLayout(ign_frame)
-        ign_layout.setContentsMargins(10, 6, 10, 6)
-        ign_layout.setSpacing(4)
-
-        ign_hdr = QHBoxLayout()
-        ign_hdr.addWidget(QLabel("Ignored"))
-        ign_hdr.addStretch()
-        ign_scan_btn = QPushButton("Scan")
-        ign_scan_btn.clicked.connect(self._scan_ignored)
-        ign_hdr.addWidget(ign_scan_btn)
-        ign_all_btn = QPushButton("All")
-        ign_all_btn.clicked.connect(lambda: self._set_all_ignores(True))
-        ign_hdr.addWidget(ign_all_btn)
-        ign_none_btn = QPushButton("None")
-        ign_none_btn.clicked.connect(lambda: self._set_all_ignores(False))
-        ign_hdr.addWidget(ign_none_btn)
-        ign_layout.addLayout(ign_hdr)
-
-        self._ign_scroll = QScrollArea()
-        self._ign_scroll.setMaximumHeight(50)
-        self._ign_scroll.setWidgetResizable(True)
-        self._ign_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._ign_container = QWidget()
-        self._ign_container.setStyleSheet("background: transparent;")
-        self._ign_chk_layout = QHBoxLayout(self._ign_container)
-        self._ign_chk_layout.setContentsMargins(2, 2, 2, 2)
-        self._ign_chk_layout.setSpacing(4)
-        self._ign_chk_layout.addStretch()
-        self._ign_scroll.setWidget(self._ign_container)
-        ign_layout.addWidget(self._ign_scroll)
-
-        layout.addWidget(ign_frame)
-
-        # Content search (only remaining text field)
+        # Keyword filename filter
         srch_frame = QFrame()
         srch_frame.setObjectName("panel")
         srch_layout = QHBoxLayout(srch_frame)
         srch_layout.setContentsMargins(10, 6, 10, 6)
-        srch_layout.addWidget(QLabel("Contains:"))
-        self._filter_content = QLineEdit()
-        self._filter_content.setPlaceholderText("filter files containing text...")
-        self._filter_content.editingFinished.connect(self._apply_filters_to_model)
-        srch_layout.addWidget(self._filter_content, 1)
+        srch_layout.addWidget(QLabel("Keyword:"))
+        self._filter_keyword = QLineEdit()
+        self._filter_keyword.setPlaceholderText("filter files by keyword in filename...")
+        self._filter_keyword.editingFinished.connect(self._apply_filters_to_model)
+        srch_layout.addWidget(self._filter_keyword, 1)
         layout.addWidget(srch_frame)
 
         # ── File tree + preview splitter ──
@@ -672,6 +635,13 @@ class GraceContextApp(QMainWindow):
         if path:
             self._load_project(path)
 
+    def _on_dir_typed(self):
+        path = self._dir_edit.text().strip()
+        if path and os.path.isdir(path):
+            self._load_project(path)
+        elif path:
+            self._token_label.setText(f"Invalid directory: {path}")
+
     def _show_recent_menu(self):
         menu = QMenu(self)
         try:
@@ -689,10 +659,9 @@ class GraceContextApp(QMainWindow):
 
     def _load_project(self, path):
         self._selected_directory = path
-        self._dir_label.setText(f" {path}")
+        self._dir_edit.setText(path)
         self._save_recent_project()
         self._apply_filters_to_model()
-        self._scan_ignored()
         self._schedule_preview_rebuild()
 
     # ── Context Blocks ─────────────────────────────────────────────────
@@ -791,7 +760,9 @@ class GraceContextApp(QMainWindow):
                 pass
             self._ext_thread = None
 
-        ignore_dirs = self._ignored_patterns
+        ignore_dirs = {'.git', '__pycache__', 'venv', '.venv', 'env', '.env',
+                       'node_modules', '.tox', 'dist', 'build', '.idea', '.vscode',
+                       '.mypy_cache', '.pytest_cache', '.ruff_cache', 'egg-info'}
         thread = ExtensionScanThread(self._selected_directory, ignore_dirs, self)
         thread.resultReady.connect(self._on_extensions_detected)
         thread.errorOccurred.connect(self._on_worker_error)
@@ -816,61 +787,6 @@ class GraceContextApp(QMainWindow):
 
     def _on_extension_toggled(self):
         self._selected_extensions = {ext for ext, cb in self._extension_checkboxes.items() if cb.isChecked()}
-        self._apply_filters_to_model()
-
-    # ── Ignored patterns ────────────────────────────────────────────────
-
-    def _scan_ignored(self):
-        known = {'.git', '__pycache__', 'venv', '.venv', 'env', '.env',
-                 'node_modules', '.tox', 'dist', 'build', '.idea', '.vscode',
-                 '.mypy_cache', '.pytest_cache', '.ruff_cache', 'egg-info',
-                 '*.pyc', '*.pyo', '.DS_Store', 'Thumbs.db', '.env', '.gitignore'}
-        found: Set[str] = set()
-        try:
-            for entry in os.listdir(self._selected_directory):
-                if entry.startswith('.'):
-                    found.add(entry)
-                full = os.path.join(self._selected_directory, entry)
-                if os.path.isdir(full) and (entry in known or entry.startswith('__')):
-                    found.add(entry)
-            for entry in os.listdir(self._selected_directory):
-                full = os.path.join(self._selected_directory, entry)
-                if os.path.isfile(full) and entry.startswith('.'):
-                    found.add(entry)
-        except PermissionError:
-            pass
-
-        patterns = sorted(found)
-        preselected = set(patterns)
-        self._repopulate_checkboxes(
-            self._ign_chk_layout, self._ignore_checkboxes,
-            patterns, preselected,
-            self._on_ignore_toggled
-        )
-        self._ignored_patterns = preselected
-        self._apply_filters_to_model()
-
-    def _set_all_ignores(self, checked: bool):
-        for pat, cb in self._ignore_checkboxes.items():
-            cb.setChecked(checked)
-        self._ignored_patterns = {pat for pat, cb in self._ignore_checkboxes.items() if cb.isChecked()}
-        self._apply_filters_to_model()
-
-    def _on_ignore_toggled(self):
-        self._ignored_patterns = {pat for pat, cb in self._ignore_checkboxes.items() if cb.isChecked()}
-        self._apply_filters_to_model()
-
-    def add_ignored_pattern(self, pattern: str):
-        if pattern not in self._ignore_checkboxes:
-            cb = QCheckBox(pattern)
-            cb.setChecked(True)
-            cb.toggled.connect(self._on_ignore_toggled)
-            self._ignore_checkboxes[pattern] = cb
-            n = self._ign_chk_layout.count()
-            self._ign_chk_layout.insertWidget(max(0, n - 1), cb)
-        else:
-            self._ignore_checkboxes[pattern].setChecked(True)
-        self._ignored_patterns.add(pattern)
         self._apply_filters_to_model()
 
     # ── Checkbox helper ─────────────────────────────────────────────────
@@ -901,12 +817,12 @@ class GraceContextApp(QMainWindow):
 
     def _apply_filters_to_model(self):
         exts = sorted(self._selected_extensions)
-        ignore_patterns = self._ignored_patterns
-        ignore_dirs = {p for p in ignore_patterns if not p.startswith('*')}
-        ignore_files = {p for p in ignore_patterns if p.startswith('*')}
-        ignore_files.update({'.gitignore', '.env'})
-        content = self._filter_content.text().strip()
-        self._file_model.set_filters(exts, ignore_dirs, ignore_files, content)
+        ignore_dirs = {'.git', '__pycache__', 'venv', '.venv', 'env', '.env',
+                       'node_modules', '.tox', 'dist', 'build', '.idea', '.vscode',
+                       '.mypy_cache', '.pytest_cache', '.ruff_cache', 'egg-info'}
+        ignore_files = {'*.pyc', '*.pyo', '.DS_Store', 'Thumbs.db', '.gitignore', '.env'}
+        keyword = self._filter_keyword.text().strip()
+        self._file_model.set_filters(exts, ignore_dirs, ignore_files, keyword)
         self._file_model.change_root(self._selected_directory)
         self._schedule_preview_rebuild()
 
@@ -933,15 +849,12 @@ class GraceContextApp(QMainWindow):
             path = self._file_model.data(index, Qt.ItemDataRole.UserRole)
             is_dir = self._file_model.data(index, Qt.ItemDataRole.UserRole + 1)
             is_checked = self._file_model.data(index, Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked
-            entry_name = os.path.basename(path)
 
             check_action = menu.addAction("Uncheck" if is_checked else "Check")
             menu.addSeparator()
             copy_path_action = menu.addAction("Copy Path")
             if not is_dir:
                 open_action = menu.addAction("Open File")
-            if is_dir:
-                ignore_action = menu.addAction(f"Ignore '{entry_name}'")
             menu.addSeparator()
 
         expand_all = menu.addAction("Expand All")
@@ -959,8 +872,6 @@ class GraceContextApp(QMainWindow):
                 self._file_model.setData(index, new_state, Qt.ItemDataRole.CheckStateRole)
             elif action == copy_path_action:
                 QApplication.clipboard().setText(path)
-            elif is_dir and action == ignore_action:
-                self.add_ignored_pattern(entry_name)
             elif not is_dir and action == open_action:
                 try:
                     if sys.platform == "win32":
@@ -986,13 +897,11 @@ class GraceContextApp(QMainWindow):
                     enabled_blocks.append(match[0])
 
         selected_paths = self._file_model.checked_paths()
-        # Expand any checked directories to their contained matching files
-        selected_files = self._expand_dirs_to_files(selected_paths)
         instruction = self._instruction_edit.toPlainText().strip()
 
         try:
             text = ContextBuilder.build(
-                enabled_blocks, selected_files, self._selected_directory,
+                enabled_blocks, selected_paths, self._selected_directory,
                 self._preview_mode, instruction, MAX_FILE_SIZE
             )
             tokens = TokenEstimator.estimate(text)
@@ -1000,23 +909,6 @@ class GraceContextApp(QMainWindow):
             self._token_label.setText(f"~{TokenEstimator.format_count(tokens)}")
         except Exception as e:
             self._token_label.setText(f"Error: {e}")
-
-    def _expand_dirs_to_files(self, paths: list) -> list:
-        """If a path is a directory, expand it to all matching files inside it."""
-        dirs = [p for p in paths if os.path.isdir(p)]
-        files = [p for p in paths if not os.path.isdir(p)]
-        if not dirs:
-            return sorted(set(files))
-
-        for d in dirs:
-            found = FileScanner.list_entries(
-                d, self._file_model.extensions,
-                self._file_model.ignore_dirs,
-                self._file_model.ignore_files,
-                self._file_model.content_filter
-            )
-            files.extend(found)
-        return sorted(set(files))
 
     def _on_build_finished(self, text: str, tokens: int):
         self._preview_text.setPlainText(text)

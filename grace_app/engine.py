@@ -38,8 +38,9 @@ class FileScanner:
 
     @staticmethod
     def list_entries(base_path: str, extensions: List[str], ignore_dirs: Set[str],
-                     ignore_files: Set[str], content_filter: str = "") -> List[str]:
+                     ignore_files: Set[str], keyword_filter: str = "") -> List[str]:
         exts = {e.strip().lower() for e in extensions if e.strip()}
+        kw = keyword_filter.strip().lower()
         valid: List[str] = []
         try:
             for dirpath, dirnames, filenames in os.walk(base_path):
@@ -50,13 +51,8 @@ class FileScanner:
                     ext = os.path.splitext(fname)[1].lower()
                     if exts and ext not in exts:
                         continue
-                    if content_filter:
-                        try:
-                            with open(os.path.join(dirpath, fname), 'r', encoding='utf-8', errors='ignore') as fh:
-                                if content_filter not in fh.read():
-                                    continue
-                        except Exception:
-                            continue
+                    if kw and kw not in fname.lower():
+                        continue
                     valid.append(os.path.join(dirpath, fname))
         except (PermissionError, OSError):
             pass

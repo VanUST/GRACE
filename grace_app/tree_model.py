@@ -23,18 +23,18 @@ class FileTreeModel(QAbstractItemModel):
         self.ignore_dirs: set = set()
         self.ignore_files: set = set()
         self.extensions: list = []
-        self.content_filter: str = ""
+        self.keyword_filter: str = ""
         self.search_text: str = ""
 
         self._root = TreeNode(path=self.root_path, name=os.path.basename(self.root_path) or self.root_path, is_dir=True, depth=0)
         self._node_index: Dict[str, TreeNode] = {self.root_path: self._root}
         self._checked_paths: Dict[str, bool] = {}
 
-    def set_filters(self, extensions: list, ignore_dirs: set, ignore_files: set, content_filter: str = ""):
+    def set_filters(self, extensions: list, ignore_dirs: set, ignore_files: set, keyword_filter: str = ""):
         self.extensions = [e.lower() for e in extensions]
         self.ignore_dirs = ignore_dirs
         self.ignore_files = ignore_files
-        self.content_filter = content_filter
+        self.keyword_filter = keyword_filter
 
     def set_search(self, text: str):
         self.search_text = text.lower()
@@ -45,7 +45,7 @@ class FileTreeModel(QAbstractItemModel):
     def checked_paths(self) -> list:
         result = []
         for path, checked in self._checked_paths.items():
-            if checked:
+            if checked and not os.path.isdir(path):
                 result.append(path)
         result.sort()
         return result
@@ -67,7 +67,7 @@ class FileTreeModel(QAbstractItemModel):
         if checked:
             all_files = FileScanner.list_entries(
                 self.root_path, self.extensions, self.ignore_dirs,
-                self.ignore_files, self.content_filter
+                self.ignore_files, self.keyword_filter
             )
             for f in all_files:
                 self._checked_paths[f] = True
@@ -194,7 +194,10 @@ class FileTreeModel(QAbstractItemModel):
             return False
         if role == Qt.ItemDataRole.CheckStateRole:
             checked = value == Qt.CheckState.Checked.value if hasattr(value, 'value') else bool(value)
+            was_dir = node.is_dir
             self._set_node_checked(node, checked)
+            if was_dir:
+                self.layoutChanged.emit()
             self.checkedChanged.emit()
             return True
         return False
@@ -249,12 +252,8 @@ class FileTreeModel(QAbstractItemModel):
                 ext = os.path.splitext(entry)[1].lower()
                 if self.extensions and ext not in self.extensions:
                     continue
-                if self.content_filter:
-                    try:
-                        with open(full, 'r', encoding='utf-8', errors='ignore') as fh:
-                            if self.content_filter not in fh.read():
-                                continue
-                    except Exception:
+                if self.keyword_filter:
+                    if self.keyword_filter.lower() not in entry.lower():
                         continue
                 files.append(full)
 
@@ -294,6 +293,10 @@ class FileTreeModel(QAbstractItemModel):
                     child.visible = True
 
     def _set_node_checked(self, node: TreeNode, checked: bool):
+        if node.is_dir and not node.loaded:
+            self._load_children(node)
+            self._recompute_visibility(node)
+
         if checked:
             self._checked_paths[node.path] = True
         else:
@@ -304,6 +307,9 @@ class FileTreeModel(QAbstractItemModel):
                 self._set_node_checked(child, checked)
 
     def _propagate_checks_down(self, node: TreeNode):
+        if node.is_dir and not node.loaded:
+            self._load_children(node)
+            self._recompute_visibility(node)
         checked = self._checked_paths.get(node.path, False)
         if node.is_dir:
             for child in node.children:
